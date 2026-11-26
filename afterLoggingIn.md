@@ -1,88 +1,55 @@
-- Once you log in successfully, go to settings, Users & Groups, Add User
-- Assign Administrator permissions to new account
-- Reboot computer and log into new admin account
-- Delete the first admin account.
-- Open terminal and run the following codes
+### 1. Create Your Permanent Admin Account (Grants SecureToken)
 
-1. **Inspect the hosts file:**
+1. Log into the temporary bootstrap account created in Recovery (keep Wi-Fi off).
+2. Open **System Settings > Users & Groups**, click **Add User**, set the account type to **Administrator**, and create your permanent admin account.
+3. Restart the Mac and log into the new permanent admin account.
+4. Open **System Settings > Users & Groups** and delete the temporary bootstrap account (select **Delete the home folder**).
+
+---
+
+### 2. Move and Run `mdm_shield.sh`
+
+`MDMTool.sh` already pre-populated `/etc/hosts` with IPv4 and IPv6 blocks, cleared the cached `.cloudConfig` activation records, and saved `mdm_shield.sh` to `/Users/Shared/`. Move it into your home folder and run it:
+
 ```bash
-cat /etc/hosts
+mv /Users/Shared/mdm_shield.sh ~/mdm_shield.sh && ~/mdm_shield.sh
 
 ```
 
+This single command replaces the manual `/etc/hosts`, DNS flush, `csrutil`, `profiles status`, and `launchctl` commands—it automatically:
 
-2. **Clean and standardize the `/etc/hosts` file with loopback blocks:**
-```bash
-sudo sh -c 'cat << "EOF" > /etc/hosts
-##
-# Host Database
-#
-# localhost is used to configure the loopback interface
-# when the system is booting.  Do not change this entry.
-##
-127.0.0.1	localhost
-255.255.255.255	broadcasthost
-::1             localhost
-0.0.0.0 iprofiles.apple.com
-0.0.0.0 mdmenrollment.apple.com
-0.0.0.0 deviceenrollment.apple.com
-EOF'
+* Verifies all 18 IPv4 (`0.0.0.0`) and IPv6 (`::`) blocks in `/etc/hosts`
+* Flushes `mDNSResponder` and confirms `albert.apple.com` resolves to loopback
+* Disables `system/com.apple.ManagedClient.enroll` and `system/com.apple.ManagedClient.cloudconfigurationd`
+* Disables `gui/<UID>/com.apple.ManagedClientAgent.agent` and `enrollagent` (stopping the 8-hour nag popup)
+* Restarts `followupd` to clear System Settings badges and prints `csrutil status` and `profiles status -type enrollment`
 
-```
+---
 
+### 3. Final Account & Profile Verification
 
-3. **Re-verify the contents of `/etc/hosts`:**
-```bash
-cat /etc/hosts
+Run these three remaining checks not covered by `mdm_shield.sh`:
 
-```
-
-
-4. **Flush local DNS and restart the mDNSResponder daemon:**
-```bash
-sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
-
-```
-
-
-5. **Verify System Integrity Protection (SIP) status:**
-```bash
-csrutil status
-
-```
-
-
-6. **Check system enrollment status:**
-```bash
-profiles status -type enrollment
-
-```
-
-
-7. **Check for installed configuration profiles:**
-```bash
-sudo profiles list
-
-```
-
-
-
-8. **List FileVault SecureToken/Volume Owner accounts with root privileges:**
+1. **Confirm FileVault SecureToken / Volume Ownership** (verify your new admin account appears and the deleted temporary account is gone):
 ```bash
 sudo fdesetup list
 
 ```
 
 
-10. **Attempt to retrieve the cloud configuration record from Apple servers:**
+2. **Confirm zero configuration profiles are installed:**
+```bash
+sudo profiles list
+
+```
+
+
+3. **Confirm cloud enrollment lookup is blocked** (should return an error stating it cannot determine if the machine is DEP enabled):
 ```bash
 sudo profiles show -type enrollment
 
 ```
 
 
-11. **Disable the background device enrollment launch daemon:**
-```bash
-sudo launchctl disable system/com.apple.ManagedClient.enroll
 
-```
+Once verified, turn Wi-Fi back on. For future macOS updates, toggle Wi-Fi off before restarting, log into your admin account, run `~/mdm_shield.sh`, and reconnect Wi-Fi.
